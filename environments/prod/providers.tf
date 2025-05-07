@@ -16,9 +16,9 @@ terraform {
   
   # Configure Terraform Cloud
   cloud {
-    organization = "your-organization"
+    organization = var.tf_organization
     workspaces {
-      name = "soc-prod"
+      name = var.tf_workspace
     }
   }
   
@@ -31,10 +31,10 @@ provider "aws" {
   
   default_tags {
     tags = {
-      Environment = "production"
-      Project     = "SOC-24-7"
+      Environment = var.environment
+      Project     = var.project_name
       ManagedBy   = "Terraform"
-      Repository  = "github.com/your-org/soc-infra"
+      Repository  = "github.com/${var.github_repo}"
     }
   }
 }

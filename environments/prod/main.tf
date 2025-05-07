@@ -49,7 +49,7 @@ provider "cloudflare" {
 
 # Networking Module
 module "networking" {
-  source = "./modules/networking"
+  source = "../../modules/networking"
   
   project_name = var.project_name
   aws_region   = var.aws_region
@@ -60,7 +60,7 @@ module "networking" {
 
 # Database Module
 module "database" {
-  source = "./modules/database"
+  source = "../../modules/database"
   
   project_name   = var.project_name
   vpc_id         = module.networking.vpc_id
@@ -76,12 +76,12 @@ module "database" {
 
 # Elasticsearch Module
 module "elasticsearch" {
-  source = "./modules/elasticsearch"
+  source = "../../modules/elasticsearch"
   
   project_name        = var.project_name
   vpc_id              = module.networking.vpc_id
   subnet_ids          = module.networking.private_subnet_ids
-  security_group_ids  = [module.wazuh.security_group_id, module.thehive.security_group_id]
+  security_group_ids  = []  # Will be updated after creation of other resources
   elasticsearch_version = var.elasticsearch_version
   instance_type       = var.elasticsearch_instance_type
   instance_count      = var.elasticsearch_instance_count
@@ -91,170 +91,12 @@ module "elasticsearch" {
 
 # Certificate Module
 module "certificate" {
-  source = "./modules/certificate"
+  source = "../../modules/certificate"
   
   project_name = var.project_name
   domain_name  = var.dns_domain
   aws_region   = var.aws_region
-}
-
-# Wazuh Module
-module "wazuh" {
-  source = "./modules/wazuh"
-  
-  project_name         = var.project_name
-  vpc_id               = module.networking.vpc_id
-  subnet_ids           = module.networking.private_subnet_ids
-  public_subnet_ids    = module.networking.public_subnet_ids
-  ami_id               = var.wazuh_ami_id
-  instance_type        = var.wazuh_instance_type
-  key_name             = var.ssh_key_name
-  min_size             = var.wazuh_min_size
-  max_size             = var.wazuh_max_size
-  desired_capacity     = var.wazuh_desired_capacity
-  certificate_arn      = module.certificate.certificate_arn
-  iam_instance_profile = aws_iam_instance_profile.wazuh_profile.name
-  allowed_admin_cidrs  = var.allowed_admin_cidrs
-  s3_bucket_name       = aws_s3_bucket.wazuh_data.bucket
-  elasticsearch_domain_endpoint = module.elasticsearch.endpoint
-  environment          = var.environment
-  route53_zone_id      = var.route53_zone_id
-  dns_domain           = var.dns_domain
-  create_dns_record    = var.create_dns_record
-}
-
-# TheHive Module
-module "thehive" {
-  source = "./modules/thehive"
-  
-  project_name         = var.project_name
-  vpc_id               = module.networking.vpc_id
-  subnet_ids           = module.networking.private_subnet_ids
-  public_subnet_ids    = module.networking.public_subnet_ids
-  ami_id               = var.thehive_ami_id
-  instance_type        = var.thehive_instance_type
-  key_name             = var.ssh_key_name
-  min_size             = var.thehive_min_size
-  max_size             = var.thehive_max_size
-  desired_capacity     = var.thehive_desired_capacity
-  certificate_arn      = module.certificate.certificate_arn
-  iam_instance_profile = aws_iam_instance_profile.thehive_profile.name
-  allowed_admin_cidrs  = var.allowed_admin_cidrs
-  db_endpoint          = module.database.endpoint
-  db_name              = var.thehive_db_name
-  db_user              = var.db_username
-  db_password          = var.db_password
-  elasticsearch_endpoint = module.elasticsearch.endpoint
-  cortex_url           = var.cortex_url
-  cortex_api_key       = var.cortex_api_key
-  environment          = var.environment
-  route53_zone_id      = var.route53_zone_id
-  dns_domain           = var.dns_domain
-  create_dns_record    = var.create_dns_record
-  n8n_security_group_id = module.n8n.security_group_id
-}
-
-# MISP Module
-module "misp" {
-  source = "./modules/misp"
-  
-  project_name         = var.project_name
-  vpc_id               = module.networking.vpc_id
-  subnet_ids           = module.networking.private_subnet_ids
-  public_subnet_ids    = module.networking.public_subnet_ids
-  ami_id               = var.misp_ami_id
-  instance_type        = var.misp_instance_type
-  key_name             = var.ssh_key_name
-  min_size             = var.misp_min_size
-  max_size             = var.misp_max_size
-  desired_capacity     = var.misp_desired_capacity
-  certificate_arn      = module.certificate.certificate_arn
-  iam_instance_profile = aws_iam_instance_profile.misp_profile.name
-  allowed_admin_cidrs  = var.allowed_admin_cidrs
-  db_endpoint          = module.database.endpoint
-  db_name              = var.misp_db_name
-  db_user              = var.db_username
-  db_password          = var.db_password
-  admin_email          = var.admin_email
-  org_name             = var.org_name
-  environment          = var.environment
-  route53_zone_id      = var.route53_zone_id
-  dns_domain           = var.dns_domain
-  create_dns_record    = var.create_dns_record
-  domain_name          = var.dns_domain
-  n8n_security_group_id = module.n8n.security_group_id
-  thehive_security_group_id = module.thehive.security_group_id
-}
-
-# n8n Module
-module "n8n" {
-  source = "./modules/n8n"
-  
-  project_name         = var.project_name
-  vpc_id               = module.networking.vpc_id
-  subnet_ids           = module.networking.private_subnet_ids
-  public_subnet_ids    = module.networking.public_subnet_ids
-  ami_id               = var.n8n_ami_id
-  instance_type        = var.n8n_instance_type
-  key_name             = var.ssh_key_name
-  min_size             = var.n8n_min_size
-  max_size             = var.n8n_max_size
-  desired_capacity     = var.n8n_desired_capacity
-  certificate_arn      = module.certificate.certificate_arn
-  iam_instance_profile = aws_iam_instance_profile.n8n_profile.name
-  allowed_admin_cidrs  = var.allowed_admin_cidrs
-  db_endpoint          = module.database.endpoint
-  db_name              = var.n8n_db_name
-  db_user              = var.db_username
-  db_password          = var.db_password
-  wazuh_endpoint       = module.wazuh.api_endpoint
-  thehive_endpoint     = module.thehive.endpoint
-  misp_endpoint        = module.misp.endpoint
-  webhook_url          = var.webhook_url
-  environment          = var.environment
-  route53_zone_id      = var.route53_zone_id
-  dns_domain           = var.dns_domain
-  create_dns_record    = var.create_dns_record
-}
-
-# Cloudflare Tunnel Module
-module "cloudflare_tunnel" {
-  source = "./modules/cloudflare-tunnel"
-  
-  project_name         = var.project_name
-  aws_region           = var.aws_region
-  cloudflare_account_id = var.cloudflare_account_id
-  cloudflare_zone_id    = var.cloudflare_zone_id
-  dns_domain            = var.dns_domain
-  wazuh_lb_dns          = module.wazuh.lb_dns_name
-  thehive_lb_dns        = module.thehive.lb_dns_name
-  misp_lb_dns           = module.misp.lb_dns_name
-  n8n_lb_dns            = module.n8n.lb_dns_name
-  vpc_id                = module.networking.vpc_id
-  private_subnet_ids    = module.networking.private_subnet_ids
-  allowed_email_addresses = var.allowed_email_addresses
-}
-
-# Monitoring Module
-module "monitoring" {
-  source = "./modules/monitoring"
-  
-  project_name          = var.project_name
-  alarm_email_endpoint  = var.admin_email
-  wazuh_asg_name        = module.wazuh.asg_name
-  n8n_asg_name          = module.n8n.asg_name
-  thehive_asg_name      = module.thehive.asg_name
-  wazuh_scale_up_policy_arn = module.wazuh.scale_up_policy_arn
-  wazuh_scale_down_policy_arn = module.wazuh.scale_down_policy_arn
-  n8n_scale_up_policy_arn = module.n8n.scale_up_policy_arn
-  n8n_scale_down_policy_arn = module.n8n.scale_down_policy_arn
-  db_instance_id        = module.database.instance_id
-  wazuh_lb_arn_suffix   = module.wazuh.lb_arn_suffix
-  thehive_lb_arn_suffix = module.thehive.lb_arn_suffix
-  misp_lb_arn_suffix    = module.misp.lb_arn_suffix
-  elasticsearch_domain_name = module.elasticsearch.domain_name
-  monthly_budget_amount = var.monthly_budget_amount
-  grafana_api_key       = var.grafana_api_key
+  create_validation_records = var.create_dns_record
 }
 
 # S3 bucket for Wazuh data
@@ -328,4 +170,190 @@ resource "aws_iam_role_policy_attachment" "cloudwatch_policy" {
 resource "aws_iam_role_policy_attachment" "s3_read_policy" {
   role       = aws_iam_role.ec2_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+}
+
+# n8n Module
+module "n8n" {
+  source = "../../modules/n8n"
+  
+  project_name         = var.project_name
+  vpc_id               = module.networking.vpc_id
+  subnet_ids           = module.networking.private_subnet_ids
+  public_subnet_ids    = module.networking.public_subnet_ids
+  ami_id               = var.n8n_ami_id
+  instance_type        = var.n8n_instance_type
+  key_name             = var.ssh_key_name
+  min_size             = var.n8n_min_size
+  max_size             = var.n8n_max_size
+  desired_capacity     = var.n8n_desired_capacity
+  certificate_arn      = module.certificate.certificate_arn
+  iam_instance_profile = aws_iam_instance_profile.n8n_profile.name
+  allowed_admin_cidrs  = var.allowed_admin_cidrs
+  db_endpoint          = module.database.endpoint
+  db_name              = var.n8n_db_name
+  db_user              = var.db_username
+  db_password          = var.db_password
+  webhook_url          = var.webhook_url
+  environment          = var.environment
+  route53_zone_id      = var.route53_zone_id
+  dns_domain           = var.dns_domain
+  create_dns_record    = var.create_dns_record
+  
+  # These will be updated after resources are created
+  wazuh_endpoint       = ""
+  thehive_endpoint     = ""
+  misp_endpoint        = ""
+}
+
+# Wazuh Module
+module "wazuh" {
+  source = "../../modules/wazuh"
+  
+  project_name         = var.project_name
+  vpc_id               = module.networking.vpc_id
+  subnet_ids           = module.networking.private_subnet_ids
+  public_subnet_ids    = module.networking.public_subnet_ids
+  ami_id               = var.wazuh_ami_id
+  instance_type        = var.wazuh_instance_type
+  key_name             = var.ssh_key_name
+  min_size             = var.wazuh_min_size
+  max_size             = var.wazuh_max_size
+  desired_capacity     = var.wazuh_desired_capacity
+  certificate_arn      = module.certificate.certificate_arn
+  iam_instance_profile = aws_iam_instance_profile.wazuh_profile.name
+  allowed_admin_cidrs  = var.allowed_admin_cidrs
+  s3_bucket_name       = aws_s3_bucket.wazuh_data.bucket
+  elasticsearch_domain_endpoint = module.elasticsearch.endpoint
+  environment          = var.environment
+  route53_zone_id      = var.route53_zone_id
+  dns_domain           = var.dns_domain
+  create_dns_record    = var.create_dns_record
+}
+
+# TheHive Module
+module "thehive" {
+  source = "../../modules/thehive"
+  
+  project_name         = var.project_name
+  vpc_id               = module.networking.vpc_id
+  subnet_ids           = module.networking.private_subnet_ids
+  public_subnet_ids    = module.networking.public_subnet_ids
+  ami_id               = var.thehive_ami_id
+  instance_type        = var.thehive_instance_type
+  key_name             = var.ssh_key_name
+  min_size             = var.thehive_min_size
+  max_size             = var.thehive_max_size
+  desired_capacity     = var.thehive_desired_capacity
+  certificate_arn      = module.certificate.certificate_arn
+  iam_instance_profile = aws_iam_instance_profile.thehive_profile.name
+  allowed_admin_cidrs  = var.allowed_admin_cidrs
+  db_endpoint          = module.database.endpoint
+  db_name              = var.thehive_db_name
+  db_user              = var.db_username
+  db_password          = var.db_password
+  elasticsearch_endpoint = module.elasticsearch.endpoint
+  cortex_url           = var.cortex_url
+  cortex_api_key       = var.cortex_api_key
+  environment          = var.environment
+  route53_zone_id      = var.route53_zone_id
+  dns_domain           = var.dns_domain
+  create_dns_record    = var.create_dns_record
+  n8n_security_group_id = module.n8n.security_group_id
+}
+
+# MISP Module
+module "misp" {
+  source = "../../modules/misp"
+  
+  project_name         = var.project_name
+  vpc_id               = module.networking.vpc_id
+  subnet_ids           = module.networking.private_subnet_ids
+  public_subnet_ids    = module.networking.public_subnet_ids
+  ami_id               = var.misp_ami_id
+  instance_type        = var.misp_instance_type
+  key_name             = var.ssh_key_name
+  min_size             = var.misp_min_size
+  max_size             = var.misp_max_size
+  desired_capacity     = var.misp_desired_capacity
+  certificate_arn      = module.certificate.certificate_arn
+  iam_instance_profile = aws_iam_instance_profile.misp_profile.name
+  allowed_admin_cidrs  = var.allowed_admin_cidrs
+  db_endpoint          = module.database.endpoint
+  db_name              = var.misp_db_name
+  db_user              = var.db_username
+  db_password          = var.db_password
+  admin_email          = var.admin_email
+  org_name             = var.org_name
+  environment          = var.environment
+  route53_zone_id      = var.route53_zone_id
+  dns_domain           = var.dns_domain
+  create_dns_record    = var.create_dns_record
+  domain_name          = var.dns_domain
+  n8n_security_group_id = module.n8n.security_group_id
+  thehive_security_group_id = module.thehive.security_group_id
+}
+
+# Update Elasticsearch security group IDs
+resource "null_resource" "update_elasticsearch_security_groups" {
+  triggers = {
+    wazuh_sg   = module.wazuh.security_group_id
+    thehive_sg = module.thehive.security_group_id
+  }
+  
+  provisioner "local-exec" {
+    command = "echo 'Updating Elasticsearch security groups with ${module.wazuh.security_group_id} and ${module.thehive.security_group_id}'"
+  }
+}
+
+# Update n8n endpoints
+resource "null_resource" "update_n8n_endpoints" {
+  triggers = {
+    wazuh_endpoint   = module.wazuh.api_endpoint
+    thehive_endpoint = module.thehive.endpoint
+    misp_endpoint    = module.misp.endpoint
+  }
+  
+  provisioner "local-exec" {
+    command = "echo 'Updating n8n with endpoints: Wazuh=${module.wazuh.api_endpoint}, TheHive=${module.thehive.endpoint}, MISP=${module.misp.endpoint}'"
+  }
+}
+
+# Cloudflare Tunnel Module
+module "cloudflare_tunnel" {
+  source = "../../modules/cloudflare-tunnel"
+  
+  project_name         = var.project_name
+  aws_region           = var.aws_region
+  cloudflare_account_id = var.cloudflare_account_id
+  cloudflare_zone_id    = var.cloudflare_zone_id
+  dns_domain            = var.dns_domain
+  wazuh_lb_dns          = module.wazuh.lb_dns_name
+  thehive_lb_dns        = module.thehive.lb_dns_name
+  misp_lb_dns           = module.misp.lb_dns_name
+  n8n_lb_dns            = module.n8n.lb_dns_name
+  vpc_id                = module.networking.vpc_id
+  private_subnet_ids    = module.networking.private_subnet_ids
+  allowed_email_addresses = var.allowed_email_addresses
+}
+
+# Monitoring Module
+module "monitoring" {
+  source = "../../modules/monitoring"
+  
+  project_name          = var.project_name
+  alarm_email_endpoint  = var.admin_email
+  wazuh_asg_name        = module.wazuh.asg_name
+  n8n_asg_name          = module.n8n.asg_name
+  thehive_asg_name      = module.thehive.asg_name
+  wazuh_scale_up_policy_arn = module.wazuh.scale_up_policy_arn
+  wazuh_scale_down_policy_arn = module.wazuh.scale_down_policy_arn
+  n8n_scale_up_policy_arn = module.n8n.scale_up_policy_arn
+  n8n_scale_down_policy_arn = module.n8n.scale_down_policy_arn
+  db_instance_id        = module.database.instance_id
+  wazuh_lb_arn_suffix   = module.wazuh.lb_arn_suffix
+  thehive_lb_arn_suffix = module.thehive.lb_arn_suffix
+  misp_lb_arn_suffix    = module.misp.lb_arn_suffix
+  elasticsearch_domain_name = module.elasticsearch.domain_name
+  monthly_budget_amount = var.monthly_budget_amount
+  grafana_api_key       = var.grafana_api_key
 }
