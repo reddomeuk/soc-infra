@@ -4,6 +4,72 @@ locals {
   monitoring_name = "${var.project_name}-monitoring"
 }
 
+# Variable validation and descriptions
+variable "alarm_email_endpoint" {
+  description = "Email address for SOC alert notifications"
+  type        = string
+  validation {
+    condition     = can(regex("^.+@.+\\..+$", var.alarm_email_endpoint))
+    error_message = "Must be a valid email address."
+  }
+}
+
+variable "project_name" {
+  description = "Name of the project"
+  type        = string
+}
+
+variable "wazuh_asg_name" {
+  description = "Name of the Wazuh Auto Scaling Group"
+  type        = string
+}
+
+variable "n8n_asg_name" {
+  description = "Name of the n8n Auto Scaling Group"
+  type        = string
+}
+
+variable "thehive_asg_name" {
+  description = "Name of the TheHive Auto Scaling Group"
+  type        = string
+}
+
+variable "db_instance_id" {
+  description = "RDS instance identifier"
+  type        = string
+}
+
+variable "elasticsearch_domain_name" {
+  description = "Elasticsearch domain name"
+  type        = string
+}
+
+variable "wazuh_lb_arn_suffix" {
+  description = "ARN suffix for Wazuh load balancer"
+  type        = string
+}
+
+variable "thehive_lb_arn_suffix" {
+  description = "ARN suffix for TheHive load balancer"
+  type        = string
+}
+
+variable "misp_lb_arn_suffix" {
+  description = "ARN suffix for MISP load balancer"
+  type        = string
+}
+
+variable "monthly_budget_amount" {
+  description = "Monthly budget amount in USD"
+  type        = number
+}
+
+variable "grafana_api_key" {
+  description = "API key for Grafana"
+  type        = string
+  sensitive   = true
+}
+
 # CloudWatch Dashboard for SOC metrics
 resource "aws_cloudwatch_dashboard" "soc_dashboard" {
   dashboard_name = "${var.project_name}-soc-dashboard"
@@ -165,6 +231,7 @@ data "aws_caller_identity" "current" {}
 # SNS Topic for alerts
 resource "aws_sns_topic" "soc_alerts" {
   name = "${var.project_name}-soc-alerts"
+  kms_master_key_id = "alias/aws/sns"
   
   tags = {
     Name = "${local.monitoring_name}-alerts"
@@ -191,6 +258,7 @@ resource "aws_cloudwatch_metric_alarm" "wazuh_high_cpu" {
   alarm_description   = "This metric monitors Wazuh EC2 CPU utilization"
   alarm_actions       = [aws_sns_topic.soc_alerts.arn, var.wazuh_scale_up_policy_arn]
   ok_actions          = [aws_sns_topic.soc_alerts.arn]
+  treat_missing_data  = "breaching"
   
   dimensions = {
     AutoScalingGroupName = var.wazuh_asg_name
@@ -214,6 +282,7 @@ resource "aws_cloudwatch_metric_alarm" "n8n_high_cpu" {
   alarm_description   = "This metric monitors n8n EC2 CPU utilization"
   alarm_actions       = [aws_sns_topic.soc_alerts.arn, var.n8n_scale_up_policy_arn]
   ok_actions          = [aws_sns_topic.soc_alerts.arn]
+  treat_missing_data  = "breaching"
   
   dimensions = {
     AutoScalingGroupName = var.n8n_asg_name
@@ -236,6 +305,7 @@ resource "aws_cloudwatch_metric_alarm" "wazuh_low_cpu" {
   threshold           = "20"
   alarm_description   = "This metric monitors Wazuh EC2 CPU utilization for scale down"
   alarm_actions       = [var.wazuh_scale_down_policy_arn]
+  treat_missing_data  = "breaching"
   
   dimensions = {
     AutoScalingGroupName = var.wazuh_asg_name
@@ -258,6 +328,7 @@ resource "aws_cloudwatch_metric_alarm" "n8n_low_cpu" {
   threshold           = "20"
   alarm_description   = "This metric monitors n8n EC2 CPU utilization for scale down"
   alarm_actions       = [var.n8n_scale_down_policy_arn]
+  treat_missing_data  = "breaching"
   
   dimensions = {
     AutoScalingGroupName = var.n8n_asg_name
@@ -281,6 +352,7 @@ resource "aws_cloudwatch_metric_alarm" "elasticsearch_high_cpu" {
   alarm_description   = "This metric monitors Elasticsearch CPU utilization"
   alarm_actions       = [aws_sns_topic.soc_alerts.arn]
   ok_actions          = [aws_sns_topic.soc_alerts.arn]
+  treat_missing_data  = "breaching"
   
   dimensions = {
     DomainName = var.elasticsearch_domain_name
@@ -305,6 +377,7 @@ resource "aws_cloudwatch_metric_alarm" "db_high_cpu" {
   alarm_description   = "This metric monitors RDS CPU utilization"
   alarm_actions       = [aws_sns_topic.soc_alerts.arn]
   ok_actions          = [aws_sns_topic.soc_alerts.arn]
+  treat_missing_data  = "breaching"
   
   dimensions = {
     DBInstanceIdentifier = var.db_instance_id
@@ -328,6 +401,7 @@ resource "aws_cloudwatch_metric_alarm" "db_low_storage" {
   alarm_description   = "This metric monitors RDS free storage space"
   alarm_actions       = [aws_sns_topic.soc_alerts.arn]
   ok_actions          = [aws_sns_topic.soc_alerts.arn]
+  treat_missing_data  = "breaching"
   
   dimensions = {
     DBInstanceIdentifier = var.db_instance_id
@@ -363,6 +437,7 @@ resource "aws_cloudwatch_metric_alarm" "critical_wazuh_alerts" {
   threshold           = "0"
   alarm_description   = "This alarm triggers when critical (level 12+) Wazuh alerts are detected"
   alarm_actions       = [aws_sns_topic.soc_alerts.arn]
+  treat_missing_data  = "breaching"
   
   tags = {
     Name = "${local.monitoring_name}-critical-wazuh-alerts"
@@ -404,6 +479,7 @@ resource "aws_cloudwatch_metric_alarm" "login_failures" {
   threshold           = "5"
   alarm_description   = "This alarm triggers when there are more than 5 login failures in 5 minutes"
   alarm_actions       = [aws_sns_topic.soc_alerts.arn]
+  treat_missing_data  = "breaching"
   
   tags = {
     Name = "${local.monitoring_name}-login-failures"
@@ -439,6 +515,10 @@ resource "aws_lambda_function" "process_soc_logs" {
     variables = {
       SNS_TOPIC_ARN = aws_sns_topic.soc_alerts.arn
     }
+  }
+  
+  dead_letter_config {
+    target_arn = aws_sqs_queue.lambda_dlq.arn
   }
   
   tags = {
@@ -573,6 +653,27 @@ resource "aws_lambda_permission" "cloudwatch_permission" {
   function_name = aws_lambda_function.process_soc_logs.function_name
   principal     = "logs.${data.aws_region.current.name}.amazonaws.com"
   source_arn    = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/wazuh/alerts:*"
+}
+
+# CloudWatch Alarm for Lambda errors
+resource "aws_cloudwatch_metric_alarm" "lambda_error_alarm" {
+  alarm_name          = "${var.project_name}-lambda-errors"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "Errors"
+  namespace           = "AWS/Lambda"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "Alarm if Lambda function for SOC log processing has any errors"
+  alarm_actions       = [aws_sns_topic.soc_alerts.arn]
+  treat_missing_data  = "breaching"
+  dimensions = {
+    FunctionName = aws_lambda_function.process_soc_logs.function_name
+  }
+  tags = {
+    Name = "${local.monitoring_name}-lambda-errors"
+  }
 }
 
 # AWS Budget for SOC costs
@@ -1076,36 +1177,21 @@ resource "local_file" "grafana_dashboard" {
 EOF
   filename = "${path.module}/grafana_dashboard.json"
 }
- "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-      }
-    ]
-  })
-  
-  tags = {
-    Name = "${local.monitoring_name}-lambda-role"
-  }
+
+# Output dashboard URL
+output "soc_dashboard_url" {
+  description = "SOC CloudWatch dashboard URL"
+  value       = "https://${data.aws_region.current.name}.console.aws.amazon.com/cloudwatch/home?region=${data.aws_region.current.name}#dashboards:name=${aws_cloudwatch_dashboard.soc_dashboard.dashboard_name}"
 }
 
-# IAM policy for Lambda to access CloudWatch Logs and publish to SNS
-resource "aws_iam_policy" "lambda_policy" {
-  name        = "${var.project_name}-lambda-log-processor-policy"
-  description = "Policy for SOC log processor Lambda function"
-  
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ]
-        Effect   = "Allow"
-        Resource = "arn:aws:logs:*:*:*"
-      },
-      {
-        Action =
+# Output SNS topic ARN
+output "soc_alerts_sns_topic_arn" {
+  description = "ARN of the SOC alerts SNS topic"
+  value       = aws_sns_topic.soc_alerts.arn
+}
+
+# Output Lambda function name
+output "process_soc_logs_lambda_name" {
+  description = "Name of the Lambda function processing SOC logs"
+  value       = aws_lambda_function.process_soc_logs.function_name
+}
