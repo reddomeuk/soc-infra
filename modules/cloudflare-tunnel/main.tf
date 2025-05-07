@@ -469,3 +469,12 @@ resource "aws_ecs_service" "cloudflared" {
     Name = "${var.project_name}-cloudflared"
   }
 }
+
+# In modules/cloudflare-tunnel/main.tf, add to the ingress configuration:
+{
+  hostname = "cortex.${var.dns_domain}"
+  service  = "https://${var.cortex_lb_dns}:443"
+  originRequest = {
+    noTLSVerify = true
+  }
+},
