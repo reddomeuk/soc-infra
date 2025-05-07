@@ -357,3 +357,37 @@ module "monitoring" {
   monthly_budget_amount = var.monthly_budget_amount
   grafana_api_key       = var.grafana_api_key
 }
+
+# IAM instance profile for Cortex
+resource "aws_iam_instance_profile" "cortex_profile" {
+  name = "${var.project_name}-cortex-profile"
+  role = aws_iam_role.ec2_role.name
+}
+
+# Cortex Module
+module "cortex" {
+  source = "../../modules/cortex"
+  
+  project_name         = var.project_name
+  vpc_id               = module.networking.vpc_id
+  subnet_ids           = module.networking.private_subnet_ids
+  public_subnet_ids    = module.networking.public_subnet_ids
+  ami_id               = var.cortex_ami_id
+  instance_type        = var.cortex_instance_type
+  key_name             = var.ssh_key_name
+  min_size             = var.cortex_min_size
+  max_size             = var.cortex_max_size
+  desired_capacity     = var.cortex_desired_capacity
+  certificate_arn      = module.certificate.certificate_arn
+  iam_instance_profile = aws_iam_instance_profile.cortex_profile.name
+  allowed_admin_cidrs  = var.allowed_admin_cidrs
+  db_endpoint          = module.database.endpoint
+  db_name              = var.cortex_db_name
+  db_user              = var.db_username
+  db_password          = var.db_password
+  environment          = var.environment
+  route53_zone_id      = var.route53_zone_id
+  dns_domain           = var.dns_domain
+  create_dns_record    = var.create_dns_record
+  thehive_security_group_id = module.thehive.security_group_id
+}
